@@ -1,6 +1,8 @@
+#include <algorithm>
 #include<bits/stdc++.h>
 #include <ctime>
-#include <vector>
+#include <mutex>
+#include <ratio>
 using namespace std;
 
 typedef long long ll;
@@ -42,10 +44,10 @@ bool dateLesser(const Date &a, const Date &b) {
 }
 
 bool dateEquals(const Date &a, const Date &b) {
-    if(a.year == b.year and a.month == b.month and a.day == b.day) {
+    if(a.year == b.year and a.month == b.month and a.day == b.day) 
         return true;
-    } 
-    return false;
+    else  
+        return false;
 }
 
 bool timeGreater(const Time &a, const Time &b) {
@@ -69,6 +71,30 @@ bool timeEquals(const Time &a, const Time &b) {
         return true;
     else 
         return false;
+}
+
+bool comparator(const MyType &a, const MyType &b) {
+    if(a.startDate.year == b.startDate.year) {
+        if(a.startDate.month == b.startDate.month) {
+            if(a.startDate.day == b.startDate.day) {
+                if(a.endDate.year == b.endDate.year) {
+                    if(a.endDate.month == b.endDate.month) {
+                        if(a.endDate.day == b.endDate.day) {
+                            if(a.endTime.hr == b.endTime.hr) {
+                                if(a.endTime.mn == b.endTime.mn) {
+                                    if(a.startTime.hr == b.startTime.hr) {
+                                        if(a.startTime.mn == b.startTime.mn) {
+                                            return false;
+                                        } else return a.startTime.hr < b.startTime.hr;
+                                    } else return a.startTime.hr < b.startTime.hr;
+                                } else return a.endTime.mn < b.endTime.mn;
+                            } else return a.endTime.hr < b.endTime.hr;
+                        } else return a.endDate.day < b.endDate.day;
+                    } else return a.endDate.month < b.endDate.month;
+                } else return a.endDate.year < b.endDate.year;
+            } else return a.startDate.day < b.startDate.day;
+        } else return a.startDate.month < b.startDate.month;
+    } else return a.startDate.year < b.startDate.year;
 }
 
 int toMonth(string s) {
@@ -99,6 +125,12 @@ int toMonth(string s) {
     }
 
     return -1;
+}
+
+int toMin(const Time &t) {
+    int ans = 0;
+    ans += (t.hr * 60) + t.mn;
+    return ans;
 }
 
 Date toDate(string s) {
@@ -163,7 +195,7 @@ int32_t main() {
     }
 
     // sort MyType
-    // sort(arr.begin(), arr.end(), comparator);
+    sort(arr.begin(), arr.end(), comparator);
 
     vector<MyType> ans;
     for(int i = 0; i < (int)arr.size(); i++) {
@@ -196,7 +228,7 @@ int32_t main() {
         auto prev = merged.back();
         auto curr = ans[i];
 
-        if(timeEquals(prev.endTime, curr.startTime)) {
+        if(dateEquals(prev.endDate, curr.startDate) and timeEquals(prev.endTime, curr.startTime)) {
             MyType t;
             t.startDate = prev.startDate;
             t.startTime = prev.startTime;
@@ -205,26 +237,87 @@ int32_t main() {
             t.sleepDur = prev.sleepDur + curr.sleepDur;
             merged.pop_back();
             merged.push_back(t);
-        } else 
-            merged.push_back(ans[i]);
+        } else merged.push_back(ans[i]);
     }
 
-    for(auto x : merged) {
-        cout << x.startDate.year << "-";
+    vector<MyType> finalAns;
+    reverse(merged.begin(), merged.end());
+    for(int i = 0; i < (int)merged.size(); i++) {
+        if(i == 0) {
+            finalAns.push_back(merged[i]);
+            continue;
+        }
+
+        auto prev = finalAns.back();
+        auto curr = merged[i];
+        if(dateEquals(prev.startDate, curr.startDate) and dateEquals(prev.endDate, curr.endDate)) {
+            if(timeGreater(curr.startTime, prev.startTime) and timeLesser(curr.endTime, prev.endTime)) {
+                continue;
+            }
+
+            if(timeGreater(curr.startTime, prev.endTime) or timeLesser(curr.endTime, prev.startTime)) {
+                finalAns.push_back(merged[i]);
+                continue;
+            }  
+
+            if(timeLesser(curr.startTime, prev.startTime) and timeGreater(curr.endTime, prev.endTime)) {
+                finalAns.pop_back();
+                finalAns.push_back(merged[i]);
+                continue;
+            }  
+
+            if(timeLesser(curr.startTime, prev.startTime) and timeLesser(curr.endTime, prev.endTime) and timeGreater(curr.endTime, prev.startTime)) {
+                MyType t;
+                t.startDate = curr.startDate;
+                t.startTime = curr.startTime;
+                t.endDate = prev.endDate;
+                t.endTime = prev.endTime;
+                /* t.sleepDur = prev.sleepDur + (toMin(prev.startTime) - toMin(curr.startTime)); */
+                t.sleepDur = toMin(t.endTime) - toMin(t.startTime);
+                finalAns.pop_back();
+                finalAns.push_back(t);
+                continue;
+            }  
+
+            if(timeGreater(curr.endTime, prev.endTime) and timeGreater(curr.startTime, prev.startTime) and timeLesser(curr.startTime, prev.endTime)) { 
+                MyType t;
+                t.startDate = prev.startDate;
+                t.startTime = prev.startTime;
+                t.endDate = curr.endDate;
+                t.endTime = curr.endTime;
+                /* t.sleepDur = prev.sleepDur + (toMin(curr.endTime) - toMin(prev.endTime)); */
+                t.sleepDur = toMin(t.endTime) - toMin(t.startTime);
+                finalAns.pop_back();
+                finalAns.push_back(t);
+                continue;
+            }
+
+            finalAns.push_back(merged[i]);
+        } else finalAns.push_back(merged[i]);
+    }
+
+    reverse(finalAns.begin(), finalAns.end());
+
+    long long totalSleep = 0;
+    for(auto x : finalAns) {
+        cout << x.startDate.day << "-";
         cout << x.startDate.month << "-";
-        cout << x.startDate.day << " ";
+        cout << x.startDate.year << " ";
 
         cout << x.startTime.hr << ":";
         cout << x.startTime.mn << " ";
 
-        cout << x.endDate.year << "-";
+        cout << x.endDate.day << "-";
         cout << x.endDate.month << "-";
-        cout << x.endDate.day << " ";
+        cout << x.endDate.year << " ";
 
         cout << x.endTime.hr << ":";
         cout << x.endTime.mn << " ";
         cout << x.sleepDur << "\n";
+        totalSleep += x.sleepDur;
     }
+
+    cout << "Total Sleep: " << totalSleep / 60 << " hrs " << totalSleep % 60 << " mns";
 
     return 0;
 }
